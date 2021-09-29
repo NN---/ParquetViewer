@@ -1,7 +1,6 @@
 ﻿using Parquet;
 using ParquetFileViewer.CustomGridTypes;
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
@@ -22,26 +21,8 @@ namespace ParquetFileViewer.Helpers
                 if (field != null)
                 {
                     fields.Add(field);
-
-                    if (field is Parquet.Data.DataField df)
-                    {
-                        DataColumn newColumn = new DataColumn(df.Name, ParquetNetTypeToCSharpType(df.DataType, df.SchemaType));
-                        dataTable.Columns.Add(newColumn);
-                    }
-                    else if (field is Parquet.Data.ListField lf)
-                    {
-                        if (lf.Item is Parquet.Data.DataField dataField)
-                        {
-                            DataColumn newColumn = new DataColumn(lf.Name, ParquetNetTypeToCSharpType(dataField.DataType, lf.SchemaType));
-                            dataTable.Columns.Add(newColumn);
-                        }
-                        else if (lf.Item is Parquet.Data.ListField)
-                            throw new Exception($"Nested lists are unfortunately not supported. Field name: {lf.Name}");
-                        else
-                            throw new Exception($"Unsupported list field: {lf.Name}");
-                    }
-                    else
-                        throw new Exception($"Unsuported field type: {field.SchemaType.ToString()}");
+                    DataColumn newColumn = new DataColumn(field.Name, typeof(ValueBase));
+                    dataTable.Columns.Add(newColumn);
                 }
                 else
                     throw new Exception(string.Format("Field '{0}' does not exist", selectedField));
@@ -91,17 +72,25 @@ namespace ParquetFileViewer.Helpers
 
             foreach (var field in fields)
             {
+                int rowIndex = rowBeginIndex;
                 if (cancellationToken.IsCancellationRequested)
                     break;
 
-                Parquet.Data.DataField dataField = null;
-                if (field is Parquet.Data.DataField)
-                    dataField = (Parquet.Data.DataField)field;
-                else if (field is Parquet.Data.ListField lf && lf.Item is Parquet.Data.DataField df)
-                    dataField = df;
-                else
-                    throw new Exception($"Cannot read field: {field.Name}");
+                var test = new ParquetFieldEnumerator(field, groupReader);
+                foreach (var row in test)
+                {
+                    if (isFirstColumn)
+                    {
+                        var newRow = dataTable.NewRow();
+                        dataTable.Rows.Add(newRow);
+                    }
 
+                    dataTable.Rows[rowIndex][field.Name] = row;
+                    rowIndex++;
+                }
+                isFirstColumn = false;
+
+                /*
                 int rowIndex = rowBeginIndex;
                 int skippedRecords = 0;
                 var column = groupReader.ReadColumn(dataField);
@@ -116,11 +105,11 @@ namespace ParquetFileViewer.Helpers
                             dataTable.Rows.Add(newRow);
                         }
 
-                        var listType = ParquetNetTypeToCSharpType(column.Field.DataType, column.Field.SchemaType);
+                        var listType = ParquetNetTypeToCSharpType(column.Field);
                         if (rowToSave.Count == 1 && (rowToSave[0] == null || rowToSave[0] == DBNull.Value))
-                            dataTable.Rows[rowIndex][field.Name] = new ListType(Array.CreateInstance(listType, 0)); //single null element means empty array
+                            dataTable.Rows[rowIndex][field.Name] = new ListValue(Array.CreateInstance(listType, 0)); //single null element means empty array
                         else
-                            dataTable.Rows[rowIndex][field.Name] = new ListType((ArrayList)rowToSave.Clone());
+                            dataTable.Rows[rowIndex][field.Name] = new ListValue((ArrayList)rowToSave.Clone());
 
                         rowIndex++;
                     };
@@ -199,59 +188,8 @@ namespace ParquetFileViewer.Helpers
                 }
 
                 isFirstColumn = false;
+                */
             }
-        }
-
-
-        public static Type ParquetNetTypeToCSharpType(Parquet.Data.DataType dataType, Parquet.Data.SchemaType schemaType)
-        {
-            Type columnType;
-            switch (dataType)
-            {
-                case Parquet.Data.DataType.Boolean:
-                    columnType = typeof(bool);
-                    break;
-                case Parquet.Data.DataType.Byte:
-                    columnType = typeof(sbyte);
-                    break;
-                case Parquet.Data.DataType.ByteArray:
-                    columnType = typeof(sbyte[]);
-                    break;
-                case Parquet.Data.DataType.DateTimeOffset:
-                    //Let's treat DateTimeOffsets as DateTime
-                    columnType = typeof(DateTime);
-                    break;
-                case Parquet.Data.DataType.Decimal:
-                    columnType = typeof(decimal);
-                    break;
-                case Parquet.Data.DataType.Double:
-                    columnType = typeof(double);
-                    break;
-                case Parquet.Data.DataType.Float:
-                    columnType = typeof(float);
-                    break;
-                case Parquet.Data.DataType.Short:
-                case Parquet.Data.DataType.Int16:
-                case Parquet.Data.DataType.Int32:
-                case Parquet.Data.DataType.UnsignedInt16:
-                    columnType = typeof(int);
-                    break;
-                case Parquet.Data.DataType.Int64:
-                    columnType = typeof(long);
-                    break;
-                case Parquet.Data.DataType.UnsignedByte:
-                    columnType = typeof(byte);
-                    break;
-                case Parquet.Data.DataType.String:
-                default:
-                    columnType = typeof(string);
-                    break;
-            }
-
-            if (schemaType == Parquet.Data.SchemaType.List)
-                columnType = typeof(ListType); //wish we could just use an Array type but can't because datagridviews don't like it apparantly
-
-            return columnType;
         }
 
         public static string CleanCSVValue(string value, bool alwaysEncloseInQuotes = false)
@@ -330,7 +268,7 @@ namespace ParquetFileViewer.Helpers
             else if (dataType == Parquet.Data.DataType.DateTimeOffset)
                 return ((DateTimeOffset)value).DateTime; //converts to local time!
             else
-               return value;
+                return value;
         }
     }
 }

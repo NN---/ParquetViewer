@@ -36,6 +36,7 @@ namespace ParquetFileViewer.Helpers
             hashtable.Add(typeof(string), "nvarchar({0}) {1}NULL");
             hashtable.Add(typeof(TimeSpan), "int {1}NULL");
             hashtable.Add(typeof(byte[]), "varbinary {1}NULL");
+            hashtable.Add(typeof(ListValue), "LIST_TYPE {1}NULL"); //custom type for heterogenous List fields
             TypeMap = hashtable;
         }
 
@@ -94,19 +95,7 @@ namespace ParquetFileViewer.Helpers
 
         protected string GetTypeFor(DataColumn column)
         {
-            string item = null;
-            if (column.DataType == typeof(ListType) && column.Table.Rows.Count > 0)
-            {
-                var listType = column.Table.Rows[0][column] as ListType;
-                if (listType != null)
-                    item = ((string)TypeMap[listType.Type]).Replace(" ", "[] ");
-                else
-                    item = ((string)TypeMap[typeof(string)]).Replace(" ", "[] ");
-
-                item = string.Concat(item, " /*Array*/");
-            }
-            else
-                item = (string)TypeMap[column.DataType];
+            string item = (string)TypeMap[column.DataType];
 
             if (item == null)
                 throw new NotSupportedException(string.Format("No type mapping is provided for {0}", column.DataType.Name));

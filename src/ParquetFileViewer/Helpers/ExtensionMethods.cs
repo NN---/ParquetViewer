@@ -1,6 +1,7 @@
-﻿using System.Collections.Generic;
+﻿using ParquetFileViewer.CustomGridTypes;
+using System;
+using System.Collections.Generic;
 using System.Data;
-using System.Windows.Forms;
 
 namespace ParquetFileViewer.Helpers
 {
@@ -19,6 +20,46 @@ namespace ParquetFileViewer.Helpers
                 columns.Add(column.ColumnName);
             }
             return columns;
+        }
+
+        public static IEnumerable<T> RecursiveSelect<T>(this IEnumerable<T> source, Func<T, IEnumerable<T>> childSelector) where T: ValueBase
+        {
+            var stack = new Stack<IEnumerator<T>>();
+            var enumerator = source.GetEnumerator();
+
+            try
+            {
+                while (true)
+                {
+                    if (enumerator.MoveNext())
+                    {
+                        T element = enumerator.Current;
+                        yield return element;
+
+                        stack.Push(enumerator);
+                        enumerator = childSelector(element).GetEnumerator();
+                    }
+                    else if (stack.Count > 0)
+                    {
+                        enumerator.Dispose();
+                        enumerator = stack.Pop();
+                    }
+                    else
+                    {
+                        yield break;
+                    }
+                }
+            }
+            finally
+            {
+                enumerator.Dispose();
+
+                while (stack.Count > 0) // Clean up in case of an exception.
+                {
+                    enumerator = stack.Pop();
+                    enumerator.Dispose();
+                }
+            }
         }
     }
 }

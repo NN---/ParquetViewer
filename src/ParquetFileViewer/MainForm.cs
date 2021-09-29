@@ -117,7 +117,7 @@ namespace ParquetFileViewer
             set
             {
                 this.mainDataSource = value;
-                this.mainGridView.DataSource = this.mainDataSource;
+                this.mainGridView.DataSource = value;
 
                 try
                 {

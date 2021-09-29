@@ -28,17 +28,9 @@ namespace ParquetFileViewer.Controls
             if (sender is DataGridView dgv)
             {
                 DataTable dt = null;
-                if (dgv[e.ColumnIndex, e.RowIndex].Value is ListType lt)
+                if (dgv[e.ColumnIndex, e.RowIndex].Value is ListValue lt)
                 {
-                    dt = new DataTable();
-                    dt.Columns.Add(new DataColumn(dgv.Columns[e.ColumnIndex].Name, lt.Type));
-
-                    foreach (var item in lt.Data)
-                    {
-                        var row = dt.NewRow();
-                        row[0] = item;
-                        dt.Rows.Add(row);
-                    }
+                    dt = lt.GetDataTable(dgv.Columns[e.ColumnIndex].Name);
                 }
 
                 if (dt != null)
@@ -116,7 +108,8 @@ namespace ParquetFileViewer.Controls
             if (e.RowIndex < 0 || e.ColumnIndex < 0)
                 return;
 
-            if ((e.Value == null || e.Value == DBNull.Value) && sender is DataGridView dgv)
+            if ((e.Value == null || e.Value == DBNull.Value || (e.Value is ValueBase vb && vb.IsDBNull())) 
+                && sender is DataGridView dgv)
             {
                 e.Paint(e.CellBounds, DataGridViewPaintParts.All
                     & ~(DataGridViewPaintParts.ContentForeground));
@@ -131,7 +124,7 @@ namespace ParquetFileViewer.Controls
 
                 e.Handled = true;
             }
-            else if (e.Value is ListType)
+            else if (e.Value is ListValue)
             {
                 e.CellStyle.Font = new Font(e.CellStyle.Font, FontStyle.Underline);
                 e.CellStyle.ForeColor = Color.Blue;
@@ -148,12 +141,9 @@ namespace ParquetFileViewer.Controls
 
         private void ParquetGridView_ColumnAdded(object sender, DataGridViewColumnEventArgs e)
         {
-            if (e.Column is DataGridViewColumn column)
-            {
-                //This will help avoid overflowing the sum(fillweight) of the grid's columns when there are too many of them.
-                //The value of this field is not important as we do not use the FILL mode for column sizing.
-                column.FillWeight = 0.01f;
-            }
+            //This will help avoid overflowing the sum(fillweight) of the grid's columns when there are too many of them.
+            //The value of this field is not important as we do not use the FILL mode for column sizing.
+            e.Column.FillWeight = 0.01f;
         }
 
         private void ParquetGridView_CellMouseMove(object sender, DataGridViewCellMouseEventArgs e)
@@ -163,7 +153,7 @@ namespace ParquetFileViewer.Controls
 
             if (sender is DataGridView dgv)
             {
-                if (dgv.Columns[e.ColumnIndex].ValueType == typeof(ListType))
+                if (dgv.Columns[e.ColumnIndex].ValueType == typeof(ListValue))
                 {
                     //Lets be fancy and only change the cursor if the user is hovering over the actual text in the cell
                     if (IsCursorOverCellText(dgv, e.ColumnIndex, e.RowIndex))

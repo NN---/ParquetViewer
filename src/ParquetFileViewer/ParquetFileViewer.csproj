@@ -85,6 +85,9 @@
     <Compile Include="Controls\ParquetGridView.cs">
       <SubType>Component</SubType>
     </Compile>
+    <Compile Include="CustomGridTypes\ValueBase.cs" />
+    <Compile Include="CustomGridTypes\MapValue.cs" />
+    <Compile Include="CustomGridTypes\SimpleValue.cs" />
     <Compile Include="Helpers\CustomScriptBasedSchemaAdapter.cs" />
     <Compile Include="Controls\DelayedOnChangedTextBox.cs">
       <SubType>Component</SubType>
@@ -96,8 +99,9 @@
       <DependentUpon>FieldSelectionDialog.cs</DependentUpon>
     </Compile>
     <Compile Include="Helpers\ExtensionMethods.cs" />
-    <Compile Include="CustomGridTypes\ListType.cs" />
+    <Compile Include="CustomGridTypes\ListValue.cs" />
     <Compile Include="Helpers\ParallelAsync.cs" />
+    <Compile Include="Helpers\ParquetFieldEnumerator.cs" />
     <Compile Include="MainForm.cs">
       <SubType>Form</SubType>
     </Compile>
